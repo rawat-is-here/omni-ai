@@ -141,27 +141,38 @@ class RealtimeSynth:
                 return
 
 
+            # Use the segment of `old` that is actually about
+            # to be heard (right where playback currently is),
+            # not the tail of the buffer — the tail has already
+            # gone through its release and is near-silent, which
+            # has nothing to do with what's playing right now.
+            current_position = min(self.position, len(old))
+
             fade = min(
                 self.crossfade_samples,
                 len(audio),
-                len(old)
+                max(0, len(old) - current_position)
             )
 
+            if fade > 0:
 
-            # blend old ending with new beginning
+                outgoing = old[
+                    current_position:current_position + fade
+                ]
 
-            transition = np.linspace(
-                0,
-                1,
-                fade
-            )
+                # blend the currently-playing tail with the new beginning
 
+                transition = np.linspace(
+                    0,
+                    1,
+                    fade
+                )
 
-            audio[:fade] = (
-                old[-fade:] * (1-transition)
-                +
-                audio[:fade] * transition
-            )
+                audio[:fade] = (
+                    outgoing * (1-transition)
+                    +
+                    audio[:fade] * transition
+                )
 
 
             self.current_buffer = audio
