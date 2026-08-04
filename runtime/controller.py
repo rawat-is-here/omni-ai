@@ -100,11 +100,12 @@ class RuntimeController:
 
         self.current_chord = chord_id
         print("Rendering")
-        t0 = time.perf_counter()
-        audio = self.engine.render(prediction)
-        audio = self.engine.render(
-            prediction,
-            duration=3.0,
+
+        harmony = self.engine.selector.build(
+            prediction["root"],
+            prediction["quality"],
         )
 
-        self.speaker.play(audio)
+        notes = self.engine.synth.voice_leading.apply(harmony)
+
+        self.speaker.play(notes)
