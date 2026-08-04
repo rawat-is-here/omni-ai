@@ -35,6 +35,11 @@ class RuntimeController:
         self.total_notes_seen = 0
 
     # ----------------------------------------------------
+    def stop(self):
+
+        self.speaker.stop()
+        
+        
 
     def add_note(self, note):
 

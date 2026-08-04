@@ -42,6 +42,7 @@ class RealtimeSynth:
         self.fade_samples = int(0.05 * self.sample_rate)
 
         self.lock = threading.Lock()
+        self._debug_frames = []
 
         self.stream = sd.OutputStream(
             samplerate=self.sample_rate,
@@ -98,8 +99,25 @@ class RealtimeSynth:
                         length-fade_length:length,
                         0
                     ] *= fade
+            self._debug_frames.append(outdata[:, 0].copy())
+        
 
     # -----------------------------------------------------
+    
+    def save_debug_recording(self, path="debug_recording.wav"):
+        from scipy.io import wavfile
+        import numpy as np
+
+        if not self._debug_frames:
+            print("No audio captured yet.")
+            return
+
+        audio = np.concatenate(self._debug_frames)
+        audio_int16 = np.clip(audio, -1.0, 1.0)
+        audio_int16 = (audio_int16 * 32767).astype(np.int16)
+
+        wavfile.write(path, self.sample_rate, audio_int16)
+        print(f"Saved debug recording to {path}")
 
     def play_chord(self, notes, duration=3.0):
 
@@ -181,6 +199,7 @@ class RealtimeSynth:
     # -----------------------------------------------------
 
     def stop(self):
+        self.save_debug_recording()
 
         self.stream.stop()
 
