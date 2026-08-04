@@ -28,7 +28,7 @@ def main():
     print()
 
     pipeline = AudioPipeline()
-    # pipeline.start()
+    pipeline.start()
     controller = RuntimeController()
 
     try:
@@ -54,7 +54,7 @@ def main():
         traceback.print_exc()
 
     finally:
-        # pipeline.stop()
+        pipeline.stop()
 
         controller.clear()
 

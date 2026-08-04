@@ -75,8 +75,14 @@ class RuntimeController:
         ):
 
             return
-
+        print("Schedular allowed generation")
+        print("Melody", melody)
+        
+        import time
+        t0 = time.perf_counter()
         prediction = self.engine.predict(melody)
+        print("Inference:", time.perf_counter()-t0)
+        print("prediction", prediction)
 
         chord_id = (
 
@@ -90,12 +96,12 @@ class RuntimeController:
         # Same harmony?
         # -----------------------------------
 
-        if chord_id == self.current_chord:
-
-            return
+        
 
         self.current_chord = chord_id
-
+        print("Rendering")
+        t0 = time.perf_counter()
         audio = self.engine.render(prediction)
-
+        print("Render", time.perf_counter()-t0)
+        print("Playing audio", audio.shape)
         self.speaker.play(audio)
