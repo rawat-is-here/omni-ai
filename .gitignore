@@ -1,0 +1,18 @@
+# Python & Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Large Datasets & Models
+dataset/
+datasets/
+models/*.pkl
+models/*.pt
+*.wav
+*.mp3
+
+# Generated text files
+combined_codebase.txt
+clean_codebase.txt
