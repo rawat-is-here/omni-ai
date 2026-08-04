@@ -5,7 +5,7 @@ Audio effects for OmniAI.
 from __future__ import annotations
 
 import numpy as np
-
+from scipy.signal import lfilter
 
 class Effects:
 
@@ -127,34 +127,25 @@ class Effects:
 
     ):
 
-        signal = signal.copy()
-
         delay_samples = int(
-
             sample_rate * delay_ms / 1000
-
         )
 
         output = signal.copy()
 
-        for i in range(
+        gain = feedback
+        k = 1
 
-            delay_samples,
+        while abs(gain) > 1e-5 and k * delay_samples < len(signal):
 
-            len(signal),
+            shift = k * delay_samples
 
-        ):
+            output[shift:] += gain * signal[:-shift]
 
-            output[i] += (
-
-                feedback *
-
-                output[i-delay_samples]
-
-            )
+            gain *= feedback
+            k += 1
 
         return output
-
     # -----------------------------------------------------
     # Simple Reverb
     # -----------------------------------------------------
@@ -209,28 +200,10 @@ class Effects:
 
     ):
 
-        output = signal.copy()
+        b = [alpha]
+        a = [1, -(1 - alpha)]
 
-        for i in range(
-
-            1,
-
-            len(signal),
-
-        ):
-
-            output[i] = (
-
-                alpha * output[i]
-
-                +
-
-                (1-alpha) * output[i-1]
-
-            )
-
-        return output
-
+        return lfilter(b, a, signal)
 
 if __name__ == "__main__":
 

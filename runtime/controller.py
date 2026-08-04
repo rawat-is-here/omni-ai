@@ -28,11 +28,19 @@ class RuntimeController:
 
         self.speaker = Speaker()
 
+        # Monotonically increasing counter of every note
+        # ever added, independent of MusicMemory's rolling
+        # (maxlen-capped) buffer. Used by the Scheduler to
+        # detect "new notes" even after the buffer fills.
+        self.total_notes_seen = 0
+
     # ----------------------------------------------------
 
     def add_note(self, note):
 
         self.memory.add(note)
+
+        self.total_notes_seen += 1
 
     # ----------------------------------------------------
 
@@ -44,6 +52,8 @@ class RuntimeController:
         self.scheduler.reset()
         
         self.current_chord = None
+
+        self.total_notes_seen = 0
 
     # ----------------------------------------------------
 
@@ -71,6 +81,8 @@ class RuntimeController:
             melody=melody,
 
             current_chord=self.current_chord,
+
+            total_notes_seen=self.total_notes_seen,
 
         ):
 

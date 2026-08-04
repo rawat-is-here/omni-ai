@@ -4,4 +4,3 @@ music21
 torch
 numpy
 scipy
-sound

@@ -42,6 +42,8 @@ class Scheduler:
 
         current_chord,
 
+        total_notes_seen: int | None = None,
+
     ) -> bool:
 
         now = time.perf_counter()
@@ -56,9 +58,23 @@ class Scheduler:
 
         # ----------------------------------------------
         # No new notes since last generation.
+        #
+        # `melody` comes from a fixed-size rolling buffer
+        # (MusicMemory has maxlen=32). Once that buffer is
+        # full, len(melody) stops changing even though new
+        # notes keep arriving (old notes are simply evicted).
+        # We use a monotonically increasing "total notes
+        # seen" counter instead, which keeps growing even
+        # after the buffer caps out.
         # ----------------------------------------------
 
-        if len(melody) == self.last_note_count:
+        note_count = (
+            total_notes_seen
+            if total_notes_seen is not None
+            else len(melody)
+        )
+
+        if note_count == self.last_note_count:
 
             return False
 
@@ -72,7 +88,7 @@ class Scheduler:
 
         self.last_run = now
 
-        self.last_note_count = len(melody)
+        self.last_note_count = note_count
 
         return True
 
