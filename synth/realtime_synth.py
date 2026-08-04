@@ -29,8 +29,16 @@ class RealtimeSynth:
         self.fx = Effects()
         self.mixer = Mixer()
 
-        self.current_buffer = np.zeros(1024, dtype=np.float32)
+        self.current_buffer = np.zeros(
+           self.sample_rate * 3,
+           dtype=np.float32
+        )
+
         self.position = 0
+
+        self.crossfade_samples = int(
+            0.08 * self.sample_rate
+        )
         self.fade_samples = int(0.05 * self.sample_rate)
 
         self.lock = threading.Lock()
@@ -95,9 +103,18 @@ class RealtimeSynth:
 
     def play_chord(self, notes, duration=3.0):
 
-        audio = self.osc.chord(notes, duration)
+        audio = self.osc.chord(
+            notes,
+            duration
+        )
 
-        audio = self.fx.adsr(audio)
+        audio = self.fx.adsr(
+            audio,
+            attack=0.15,
+            decay=0.20,
+            sustain=0.85,
+            release=0.40,
+        )
 
         audio = self.fx.lowpass(audio)
 
@@ -105,14 +122,51 @@ class RealtimeSynth:
 
         audio = self.fx.reverb(audio)
 
-        audio = self.mixer.set_volume(audio, 0.8)
+        audio = self.mixer.set_volume(
+            audio,
+            0.8
+        )
+
 
         with self.lock:
 
-            self.current_buffer = audio.astype(np.float32)
+            old = self.current_buffer
+
+
+            # first chord
+            if len(old) == 0 or np.max(np.abs(old)) == 0:
+
+                self.current_buffer = audio
+                self.position = 0
+                return
+
+
+            fade = min(
+                self.crossfade_samples,
+                len(audio),
+                len(old)
+            )
+
+
+            # blend old ending with new beginning
+
+            transition = np.linspace(
+                0,
+                1,
+                fade
+            )
+
+
+            audio[:fade] = (
+                old[-fade:] * (1-transition)
+                +
+                audio[:fade] * transition
+            )
+
+
+            self.current_buffer = audio
 
             self.position = 0
-
     # -----------------------------------------------------
 
     def stop(self):
