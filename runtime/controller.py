@@ -102,6 +102,9 @@ class RuntimeController:
         print("Rendering")
         t0 = time.perf_counter()
         audio = self.engine.render(prediction)
-        print("Render", time.perf_counter()-t0)
-        print("Playing audio", audio.shape)
+        audio = self.engine.render(
+            prediction,
+            duration=3.0,
+        )
+
         self.speaker.play(audio)
