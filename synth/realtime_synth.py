@@ -19,6 +19,7 @@ import numpy as np
 import sounddevice as sd
 
 from synth.voice_manager import VoiceManager
+from synth.effects import RTLowpassFilter, RTChorus, RTDelay, RTSchroederReverb
 
 
 class RealtimeSynth:
@@ -46,6 +47,12 @@ class RealtimeSynth:
         self.master_gain = 0.75
 
         self.lock = threading.Lock()
+
+        # Stateful Real-time Effects
+        self.lowpass = RTLowpassFilter(cutoff_hz=1000.0, sample_rate=sample_rate)
+        self.chorus = RTChorus(sample_rate=sample_rate, rate_hz=1.0, depth_ms=2.0, delay_ms=15.0, mix=0.35)
+        self.delay_effect = RTDelay(delay_ms=250, feedback=0.4, mix=0.2, sample_rate=sample_rate)
+        self.reverb_effect = RTSchroederReverb(sample_rate=sample_rate, feedback=0.75, mix=0.3)
 
         self.stream = sd.OutputStream(
 
@@ -88,6 +95,12 @@ class RealtimeSynth:
                 frames
 
             )
+
+        # Apply stateful real-time effects chain
+        audio = self.lowpass.process(audio)
+        audio = self.chorus.process(audio)
+        audio = self.delay_effect.process(audio)
+        audio = self.reverb_effect.process(audio)
 
         peak = np.max(np.abs(audio))
 
