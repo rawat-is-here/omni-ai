@@ -8,8 +8,8 @@ venv/
 # Large Datasets & Models
 dataset/
 datasets/
-models/*.pkl
-models/*.pt
+# models/*.pkl
+# models/*.pt
 *.wav
 *.mp3
 
