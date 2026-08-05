@@ -52,6 +52,8 @@ class Scheduler:
         current_chord,
 
         total_notes_seen: int,
+        
+        timestamp: float | None = None,
 
     ) -> bool:
 
@@ -71,7 +73,7 @@ class Scheduler:
 
             return False
 
-        now = time.perf_counter()
+        now = timestamp if timestamp is not None else time.perf_counter()
 
         # ----------------------------
         # Hard Cooldown

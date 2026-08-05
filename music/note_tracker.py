@@ -32,9 +32,10 @@ class NoteTracker:
     def process(
         self,
         pitch: PitchResult,
+        timestamp: float | None = None,
     ):
 
-        now = time.perf_counter()
+        now = timestamp if timestamp is not None else time.perf_counter()
 
         # -----------------------------------------------------
         # Silence
@@ -137,5 +138,9 @@ class NoteTracker:
 
         self.confidence_sum = 0.0
         self.frames = 0
+
+        # Filter out notes that are too short (noise/jitter)
+        if event.duration * 1000 < NOTES.MIN_NOTE_DURATION_MS:
+            return None
 
         return event

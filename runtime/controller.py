@@ -93,7 +93,7 @@ class RuntimeController:
 
     # ---------------------------------------------------------
 
-    def update(self):
+    def update(self, timestamp: float | None = None):
 
         melody = self.current_melody()
 
@@ -104,6 +104,8 @@ class RuntimeController:
             current_chord=self.current_chord,
 
             total_notes_seen=self.total_notes_seen,
+            
+            timestamp=timestamp,
 
         ):
 
@@ -117,7 +119,7 @@ class RuntimeController:
                 if key_estimate.confidence > 0.80:
                     self.key_locked = True
                     print(
-                        f"Key auto-locked to → {key_estimate.tonic} {key_estimate.mode} "
+                        f"Key auto-locked to -> {key_estimate.tonic} {key_estimate.mode} "
                         f"(conf: {key_estimate.confidence:.2f})"
                     )
                 elif key_estimate.confidence > 0.65:
@@ -145,7 +147,7 @@ class RuntimeController:
 
             print(
 
-                "Chord →",
+                "Chord ->",
 
                 prediction["chord"],
 
