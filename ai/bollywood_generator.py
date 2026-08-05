@@ -110,7 +110,7 @@ def generate_vocal_melody(
     return melody
 
 
-def generate_dataset(num_samples: int = 15000) -> list[TrainingSample]:
+def generate_dataset(num_samples: int = 120000) -> list[TrainingSample]:
     dataset = []
     
     for _ in range(num_samples):
@@ -147,7 +147,7 @@ def generate_dataset(num_samples: int = 15000) -> list[TrainingSample]:
 
 if __name__ == "__main__":
     print("Generating synthetic Bollywood dataset...")
-    data = generate_dataset(15000)
+    data = generate_dataset(120000)
     
     out_file = Path("models/bollywood_train.pkl")
     out_file.parent.mkdir(parents=True, exist_ok=True)
