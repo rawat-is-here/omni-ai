@@ -31,7 +31,19 @@ print("Using device:", DEVICE)
 # Dataset
 # ==========================================================
 
-dataset = OmniDataset("models/train.pkl")
+import pickle
+import os
+
+print("Loading datasets...")
+dataset = OmniDataset("models/train.pkl", augment=True)
+
+if os.path.exists("models/bollywood_train.pkl"):
+    print("Loading and merging Bollywood dataset...")
+    with open("models/bollywood_train.pkl", "rb") as f:
+        bollywood_samples = pickle.load(f)
+    dataset.samples.extend(bollywood_samples)
+
+print(f"Total training samples: {len(dataset)}")
 
 loader = DataLoader(
     dataset,
@@ -56,65 +68,70 @@ criterion = nn.CrossEntropyLoss()
 # Training Loop
 # ==========================================================
 
-for epoch in range(EPOCHS):
+def main():
+    for epoch in range(EPOCHS):
 
-    model.train()
+        model.train()
 
-    total_loss = 0
+        total_loss = 0
 
-    for batch in loader:
+        for batch in loader:
 
-        melody = batch["melody"].to(DEVICE)
+            melody = batch["melody"].to(DEVICE)
 
-        mask = batch["mask"].to(DEVICE)
+            mask = batch["mask"].to(DEVICE)
 
-        root = batch["root"].to(DEVICE)
+            root = batch["root"].to(DEVICE)
 
-        quality = batch["quality"].to(DEVICE)
+            quality = batch["quality"].to(DEVICE)
 
-        output = model(
-            melody,
-            mask,
+            output = model(
+                melody,
+                mask,
+            )
+
+            root_loss = criterion(
+                output["root"],
+                root,
+            )
+
+            quality_loss = criterion(
+                output["quality"],
+                quality,
+            )
+
+            loss = root_loss + quality_loss
+
+            optimizer.zero_grad()
+
+            loss.backward()
+
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        average_loss = total_loss / len(loader)
+
+        print(
+            f"Epoch {epoch+1:02d} "
+            f"Loss = {average_loss:.4f}"
         )
 
-        root_loss = criterion(
-            output["root"],
-            root,
-        )
+    # ==========================================================
+    # Save Model
+    # ==========================================================
 
-        quality_loss = criterion(
-            output["quality"],
-            quality,
-        )
-
-        loss = root_loss + quality_loss
-
-        optimizer.zero_grad()
-
-        loss.backward()
-
-        optimizer.step()
-
-        total_loss += loss.item()
-
-    average_loss = total_loss / len(loader)
-
-    print(
-        f"Epoch {epoch+1:02d} "
-        f"Loss = {average_loss:.4f}"
+    torch.save(
+        model.state_dict(),
+        "models/omni_model.pt",
     )
 
-# ==========================================================
-# Save Model
-# ==========================================================
+    print()
 
-torch.save(
-    model.state_dict(),
-    "models/omni_model.pt",
-)
+    print("Training Complete!")
 
-print()
+    print("Model saved to models/omni_model.pt")
 
-print("Training Complete!")
 
-print("Model saved to models/omni_model.pt")
+if __name__ == "__main__":
+    main()

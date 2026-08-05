@@ -7,9 +7,8 @@ Determines when the accompaniment
 should generate a new harmony.
 """
 
-from __future__ import annotations
-
 import time
+from music.beat_tracker import BeatTracker
 
 
 class Scheduler:
@@ -31,6 +30,16 @@ class Scheduler:
         self.last_generation = 0.0
 
         self.last_note_count = 0
+
+        self.beat_tracker = BeatTracker()
+
+    # ---------------------------------------------------------
+
+    def register_note(self, note):
+        """
+        Register a newly detected note to update beat tracking phase and tempo.
+        """
+        self.beat_tracker.register_note_onset(note.start_time)
 
     # ---------------------------------------------------------
 
@@ -65,7 +74,7 @@ class Scheduler:
         now = time.perf_counter()
 
         # ----------------------------
-        # Cooldown
+        # Hard Cooldown
         # ----------------------------
 
         if (
@@ -77,6 +86,14 @@ class Scheduler:
         ):
 
             return False
+
+        # ----------------------------
+        # Beat Grid Synchronization
+        # ----------------------------
+        # If the beat tracker is active, wait until we hit a beat boundary
+        if self.beat_tracker.anchor_time is not None:
+            if not self.beat_tracker.is_on_beat(now, tolerance=0.18):
+                return False
 
         self.last_generation = now
 
@@ -91,6 +108,8 @@ class Scheduler:
         self.last_generation = 0.0
 
         self.last_note_count = 0
+
+        self.beat_tracker = BeatTracker()
 
     # ---------------------------------------------------------
 

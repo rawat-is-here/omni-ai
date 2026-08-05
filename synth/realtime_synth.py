@@ -30,7 +30,7 @@ class RealtimeSynth:
 
         sample_rate: int = 44100,
 
-        block_size: int = 1024,
+        block_size: int = 2048,
 
     ):
 

@@ -34,6 +34,7 @@ class AccompanimentEngine:
     def process(
         self,
         melody: list[int],
+        progression_engine = None,
     ) -> dict:
 
         prediction = self.ai.predict(
@@ -42,12 +43,19 @@ class AccompanimentEngine:
 
         self.last_prediction = prediction
 
+        root = prediction["root"]
+        quality = prediction["quality"]
+
+        # Filter the chord through music theory progression constraints
+        if progression_engine is not None:
+            root, quality = progression_engine.filter_chord(root, quality)
+            prediction["root"] = root
+            prediction["quality"] = quality
+            prediction["chord"] = root + quality
+
         harmony = self.selector.build(
-
-            prediction["root"],
-
-            prediction["quality"],
-
+            root,
+            quality,
         )
 
         notes = self.voice_leading.apply(

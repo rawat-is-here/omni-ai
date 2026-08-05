@@ -23,7 +23,9 @@ PAD_TOKEN = 0
 
 class OmniDataset(Dataset):
 
-    def __init__(self, dataset_path: str):
+    def __init__(self, dataset_path: str, augment: bool = True):
+
+        self.augment = augment
 
         with open(dataset_path, "rb") as f:
             self.samples: list[TrainingSample] = pickle.load(f)
@@ -37,12 +39,14 @@ class OmniDataset(Dataset):
         sample = self.samples[idx]
 
         # ---------------------------------------
-        # Shift MIDI notes by +1
-        # so PAD = 0
+        # Shift MIDI notes by +1 so PAD = 0
+        # and apply random key transposition
         # ---------------------------------------
+        import random
+        shift = random.randint(-5, 6) if self.augment else 0
 
         melody = [
-            note + 1
+            max(1, min(128, note + shift + 1))
             for note in sample.melody[:MAX_SEQUENCE_LENGTH]
         ]
 
@@ -69,7 +73,7 @@ class OmniDataset(Dataset):
             ),
 
             "root": torch.tensor(
-                sample.root,
+                (sample.root + shift) % 12,
                 dtype=torch.long,
             ),
 
@@ -79,7 +83,7 @@ class OmniDataset(Dataset):
             ),
 
             "key": torch.tensor(
-                sample.key,
+                (sample.key + shift) % 12,
                 dtype=torch.long,
             ),
 
