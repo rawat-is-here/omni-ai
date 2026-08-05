@@ -3,8 +3,8 @@ scheduler.py
 
 Musical scheduler for OmniAI.
 
-Decides when the AI should generate a new
-accompaniment instead of simply using a timer.
+Determines when the accompaniment
+should generate a new harmony.
 """
 
 from __future__ import annotations
@@ -18,21 +18,21 @@ class Scheduler:
 
         self,
 
-        interval: float = 0.75,
-
         minimum_notes: int = 4,
+
+        cooldown: float = 0.75,
 
     ):
 
-        self.interval = interval
-
         self.minimum_notes = minimum_notes
 
-        self.last_run = 0.0
+        self.cooldown = cooldown
+
+        self.last_generation = 0.0
 
         self.last_note_count = 0
 
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
 
     def should_generate(
 
@@ -42,65 +42,57 @@ class Scheduler:
 
         current_chord,
 
-        total_notes_seen: int | None = None,
+        total_notes_seen: int,
 
     ) -> bool:
 
-        now = time.perf_counter()
-
-        # ----------------------------------------------
-        # Not enough musical information yet.
-        # ----------------------------------------------
+        # ----------------------------
+        # Need enough notes
+        # ----------------------------
 
         if len(melody) < self.minimum_notes:
 
             return False
 
-        # ----------------------------------------------
-        # No new notes since last generation.
-        #
-        # `melody` comes from a fixed-size rolling buffer
-        # (MusicMemory has maxlen=32). Once that buffer is
-        # full, len(melody) stops changing even though new
-        # notes keep arriving (old notes are simply evicted).
-        # We use a monotonically increasing "total notes
-        # seen" counter instead, which keeps growing even
-        # after the buffer caps out.
-        # ----------------------------------------------
+        # ----------------------------
+        # Need at least one NEW note
+        # ----------------------------
 
-        note_count = (
-            total_notes_seen
-            if total_notes_seen is not None
-            else len(melody)
-        )
-
-        if note_count == self.last_note_count:
+        if total_notes_seen == self.last_note_count:
 
             return False
 
-        # ----------------------------------------------
-        # Too soon.
-        # ----------------------------------------------
+        now = time.perf_counter()
 
-        if now - self.last_run < self.interval:
+        # ----------------------------
+        # Cooldown
+        # ----------------------------
+
+        if (
+
+            now - self.last_generation
+
+            < self.cooldown
+
+        ):
 
             return False
 
-        self.last_run = now
+        self.last_generation = now
 
-        self.last_note_count = note_count
+        self.last_note_count = total_notes_seen
 
         return True
 
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
 
     def reset(self):
 
-        self.last_run = 0.0
+        self.last_generation = 0.0
 
         self.last_note_count = 0
 
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
 
     @property
 
@@ -110,10 +102,18 @@ class Scheduler:
 
             0.0,
 
-            self.interval
+            self.cooldown
 
             -
 
-            (time.perf_counter() - self.last_run),
+            (
+
+                time.perf_counter()
+
+                -
+
+                self.last_generation
+
+            ),
 
         )

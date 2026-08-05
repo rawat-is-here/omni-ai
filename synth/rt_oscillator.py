@@ -1,11 +1,14 @@
 """
 rt_oscillator.py
 
-Continuous real-time oscillator for OmniAI.
+Low-level continuous oscillator.
 
-Unlike OscillatorBank, this oscillator never
-restarts phase, making it suitable for a
-continuous OutputStream.
+Unlike the previous implementation,
+this oscillator knows nothing about
+MIDI notes or chords.
+
+It simply generates one waveform from
+a continuously changing frequency.
 """
 
 from __future__ import annotations
@@ -16,125 +19,129 @@ import numpy as np
 
 
 class RTOscillator:
+    """
+    Continuous oscillator.
 
-    SAMPLE_RATE = 44100
+    Phase is never reset.
+    Frequency may change every sample.
+    """
 
-    def __init__(self):
+    def __init__(
 
-        self.sample_rate = self.SAMPLE_RATE
-
-        # one phase per MIDI note
-        self.phase = {}
-
-    # -----------------------------------------------------
-
-    @staticmethod
-    def midi_to_frequency(midi: int):
-
-        return 440.0 * (2 ** ((midi - 69) / 12))
-
-    # -----------------------------------------------------
-
-    def render_note(
         self,
-        midi: int,
-        frames: int,
+
+        sample_rate: int = 44100,
+
+    ):
+
+        self.sample_rate = sample_rate
+
+        self.phase = 0.0
+
+    # ------------------------------------------------------------
+
+    def reset(self):
+
+        self.phase = 0.0
+
+    # ------------------------------------------------------------
+
+    def render(
+
+        self,
+
+        frequencies: np.ndarray,
+
     ) -> np.ndarray:
 
-        frequency = self.midi_to_frequency(midi)
+        """
+        Render one block.
 
-        phase = self.phase.get(midi, 0.0)
+        frequencies
 
-        increment = (
-            2.0
-            * math.pi
-            * frequency
-            / self.sample_rate
-        )
+            One frequency value per sample.
+
+        Returns
+
+            float32 waveform.
+        """
+
+        frames = len(frequencies)
 
         output = np.empty(
+
             frames,
+
             dtype=np.float32,
+
         )
+
+        phase = self.phase
+
+        sr = self.sample_rate
+
+        two_pi = 2.0 * math.pi
 
         for i in range(frames):
 
+            phase += (
+
+                two_pi
+
+                * frequencies[i]
+
+                / sr
+
+            )
+
+            if phase >= two_pi:
+
+                phase -= two_pi
+
+            x = phase / two_pi
+
+            sine = math.sin(phase)
+
+            triangle = (
+
+                2.0
+
+                * abs(
+
+                    2.0 * (x % 1.0)
+
+                    - 1.0
+
+                )
+
+                - 1.0
+
+            )
+
+            saw = (
+
+                2.0
+
+                * (x % 1.0)
+
+                - 1.0
+
+            )
+
             output[i] = (
 
-                0.55 * math.sin(phase)
+                0.55 * sine
 
                 +
 
-                0.30
-                * (
-                    2
-                    * abs(
-                        2
-                        * (
-                            phase
-                            / (2 * math.pi)
-                            % 1
-                        )
-                        - 1
-                    )
-                    - 1
-                )
+                0.30 * triangle
 
                 +
 
-                0.15
-                * (
-                    2
-                    * (
-                        phase
-                        / (2 * math.pi)
-                        % 1
-                    )
-                    - 1
-                )
+                0.15 * saw
 
             )
 
-            phase += increment
-
-            if phase >= 2 * math.pi:
-
-                phase -= 2 * math.pi
-
-        self.phase[midi] = phase
-
-        return output
-
-    # -----------------------------------------------------
-
-    def render_chord(
-        self,
-        midi_notes: list[int],
-        frames: int,
-    ) -> np.ndarray:
-
-        output = np.zeros(
-            frames,
-            dtype=np.float32,
-        )
-
-        if not midi_notes:
-
-            return output
-
-        for note in midi_notes:
-
-            output += self.render_note(
-                note,
-                frames,
-            )
-
-        output /= len(midi_notes)
-
-        peak = np.max(np.abs(output))
-
-        if peak > 1:
-
-            output /= peak
+        self.phase = phase
 
         return output

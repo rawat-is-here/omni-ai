@@ -1,19 +1,18 @@
 """
-OmniAI Runtime Engine
+Accompaniment Engine
 
-Coordinates the AI, harmony engine,
-and synthesizer.
+Coordinates the AI prediction,
+voice leading and realtime synthesis.
 """
 
 from __future__ import annotations
 
-import numpy as np
-
 from ai.inference import OmniInference
 
 from harmony.chord_selector import ChordSelector
+from harmony.voice_leading import VoiceLeading
 
-from synth.synth_engine import SynthEngine
+from synth.realtime_synth import RealtimeSynth
 
 
 class AccompanimentEngine:
@@ -24,24 +23,24 @@ class AccompanimentEngine:
 
         self.selector = ChordSelector()
 
-        self.synth = SynthEngine()
+        self.voice_leading = VoiceLeading()
+
+        self.synth = RealtimeSynth()
+
+        self.last_prediction = None
 
     # --------------------------------------------------------
 
-    def predict(
+    def process(
         self,
         melody: list[int],
-    ):
+    ) -> dict:
 
-        return self.ai.predict(melody)
+        prediction = self.ai.predict(
+            melody,
+        )
 
-    # --------------------------------------------------------
-
-    def render(
-        self,
-        prediction: dict,
-        duration: float = 1.0,
-    ) -> np.ndarray:
+        self.last_prediction = prediction
 
         harmony = self.selector.build(
 
@@ -51,30 +50,63 @@ class AccompanimentEngine:
 
         )
 
-        audio = self.synth.render(
-
+        notes = self.voice_leading.apply(
             harmony,
-
-            duration,
-
         )
 
-        return audio
+        self.synth.set_chord(
+            notes,
+            velocity=0.90,
+        )
+
+        return prediction
 
     # --------------------------------------------------------
 
-    def process(
-        self,
-        melody: list[int],
-        duration: float = 1.0,
-    ) -> np.ndarray:
+    def current_prediction(self):
 
-        prediction = self.predict(melody)
+        return self.last_prediction
 
-        return self.render(
+    # --------------------------------------------------------
 
-            prediction,
+    def silence(self):
 
-            duration,
+        self.synth.silence()
 
-        )
+    # --------------------------------------------------------
+
+    def stop(self):
+
+        self.synth.stop()
+
+
+# ------------------------------------------------------------
+
+if __name__ == "__main__":
+
+    import time
+
+    engine = AccompanimentEngine()
+
+    melody = [
+
+        60,
+        62,
+        64,
+        65,
+        67,
+        69,
+        71,
+        72,
+
+    ]
+
+    result = engine.process(melody)
+
+    print(result)
+
+    print("Playing...")
+
+    time.sleep(5)
+
+    engine.stop()

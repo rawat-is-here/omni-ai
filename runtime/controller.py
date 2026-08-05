@@ -11,14 +11,10 @@ from music.music_memory import MusicMemory
 from runtime.scheduler import Scheduler
 from runtime.accompaniment_engine import AccompanimentEngine
 
-from audio.speaker import Speaker
-
 
 class RuntimeController:
 
     def __init__(self):
-        
-        self.current_chord = None
 
         self.memory = MusicMemory()
 
@@ -26,20 +22,14 @@ class RuntimeController:
 
         self.engine = AccompanimentEngine()
 
-        self.speaker = Speaker()
+        self.current_chord = None
 
-        # Monotonically increasing counter of every note
-        # ever added, independent of MusicMemory's rolling
-        # (maxlen-capped) buffer. Used by the Scheduler to
-        # detect "new notes" even after the buffer fills.
+        # Total notes ever received.
+        # Unlike MusicMemory, this never resets
+        # until clear() is called.
         self.total_notes_seen = 0
 
-    # ----------------------------------------------------
-    def stop(self):
-
-        self.speaker.stop()
-        
-        
+    # ---------------------------------------------------------
 
     def add_note(self, note):
 
@@ -47,20 +37,21 @@ class RuntimeController:
 
         self.total_notes_seen += 1
 
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
 
     def clear(self):
-        
 
         self.memory.clear()
 
         self.scheduler.reset()
-        
+
+        self.engine.stop()
+
         self.current_chord = None
 
         self.total_notes_seen = 0
 
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
 
     def current_melody(self):
 
@@ -72,12 +63,9 @@ class RuntimeController:
 
         ]
 
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
 
     def update(self):
-        """
-        Called whenever a new NoteEvent arrives.
-        """
 
         melody = self.current_melody()
 
@@ -92,16 +80,14 @@ class RuntimeController:
         ):
 
             return
-        print("Schedular allowed generation")
-        print("Melody", melody)
-        
-        import time
-        t0 = time.perf_counter()
-        prediction = self.engine.predict(melody)
-        print("Inference:", time.perf_counter()-t0)
-        print("prediction", prediction)
 
-        chord_id = (
+        prediction = self.engine.process(
+
+            melody,
+
+        )
+
+        chord = (
 
             prediction["root"],
 
@@ -109,20 +95,14 @@ class RuntimeController:
 
         )
 
-        # -----------------------------------
-        # Same harmony?
-        # -----------------------------------
+        if chord != self.current_chord:
 
-        
+            print(
 
-        self.current_chord = chord_id
-        print("Rendering")
+                "Chord →",
 
-        harmony = self.engine.selector.build(
-            prediction["root"],
-            prediction["quality"],
-        )
+                prediction["chord"],
 
-        notes = self.engine.synth.voice_leading.apply(harmony)
+            )
 
-        self.speaker.play(notes)
+            self.current_chord = chord

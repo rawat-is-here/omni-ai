@@ -56,7 +56,7 @@ def main():
     finally:
         pipeline.stop()
         
-        controller.stop()
+        # controller.stop()
 
         controller.clear()
 
