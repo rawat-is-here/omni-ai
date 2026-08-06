@@ -181,10 +181,36 @@ class RuntimeController:
         if not self.key_locked:
             return
 
+        forbidden = None
+        force = None
+        
+        if not hasattr(self, 'first_chord_played'):
+            self.first_chord_played = False
+            
+        if self.current_chord is not None:
+            if not hasattr(self, 'chord_beat_count'):
+                self.chord_beat_count = 0
+            
+            self.chord_beat_count += 1
+            
+            # If the current chord has been playing for 5-6 full beats, we forbid it for the next one
+            if self.chord_beat_count >= 6:
+                forbidden = self.current_chord
+        elif not self.first_chord_played and self.key_locked and self.progression_engine.active_key is not None:
+            # First chord after locking the scale should always be the Tonic
+            qual = "" if self.progression_engine.active_key.mode == "Major" else "m"
+            force = (self.progression_engine.active_key.tonic, qual)
+            self.first_chord_played = True
+
         prediction = self.engine.process(
 
             melody,
+
             progression_engine=self.progression_engine,
+            
+            forbidden_chord=forbidden,
+            
+            force_chord=force
 
         )
 
@@ -207,3 +233,4 @@ class RuntimeController:
             )
 
             self.current_chord = chord
+            self.chord_beat_count = 1

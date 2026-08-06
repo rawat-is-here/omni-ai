@@ -64,7 +64,7 @@ class OmniInference:
 
     # ----------------------------------------------------
 
-    def predict(self, melody):
+    def predict(self, melody, forbidden_chord: tuple[str, str] = None):
 
         melody = melody[:64]
 
@@ -98,9 +98,25 @@ class OmniInference:
 
             )
 
-        root = output["root"].argmax(dim=1).item()
+        root_logits = output["root"][0]
+        qual_logits = output["quality"][0]
+        
+        # Calculate joint probabilities (12x7)
+        joint_logits = root_logits.unsqueeze(1) + qual_logits.unsqueeze(0)
+        
+        # Mask out the forbidden chord
+        if forbidden_chord is not None:
+            f_root, f_qual = forbidden_chord
+            try:
+                r_idx = ROOT_NAMES.index(f_root)
+                q_idx = QUALITY_NAMES.index(f_qual)
+                joint_logits[r_idx, q_idx] = -float('inf')
+            except ValueError:
+                pass
 
-        quality = output["quality"].argmax(dim=1).item()
+        flat_idx = joint_logits.argmax().item()
+        root = flat_idx // 7
+        quality = flat_idx % 7
 
         return {
 

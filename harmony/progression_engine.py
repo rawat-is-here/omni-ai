@@ -55,7 +55,7 @@ class ProgressionEngine:
     def update_key(self, key_estimate: KeyEstimate | None):
         self.active_key = key_estimate
 
-    def filter_chord(self, root: str, quality: str) -> tuple[str, str]:
+    def filter_chord(self, root: str, quality: str, forbidden_chord: tuple[str, str] | None = None) -> tuple[str, str]:
         """
         Takes a predicted chord and snaps it to the active chord family
         or allowed off-chords if it is discordant.
@@ -74,22 +74,23 @@ class ProgressionEngine:
         # Calculate pitch offset of the predicted chord relative to the key
         rel_offset = (pred_root_idx - key_idx) % 12
         
-        # 1. Check if it's a diatonic chord in the key
-        diatonic_list = DIATONIC_CHORDS[key_mode]
-        for offset, qual in diatonic_list:
-            if rel_offset == offset and quality == qual:
-                return root, quality
-                
-        # 2. Check if it's an allowed beautiful off-chord
-        # User requested: Force diatonic ~97% of the time. Only allow special off-chords ~3% of the time
-        # or when we really need it.
-        allowed_list = ALLOWED_OFF_CHORDS[key_mode]
-        for offset, qual in allowed_list:
-            if rel_offset == offset and quality == qual:
-                if random.random() > 0.97:
+        if (root, quality) != forbidden_chord:
+            # 1. Check if it's a diatonic chord in the key
+            diatonic_list = DIATONIC_CHORDS[key_mode]
+            for offset, qual in diatonic_list:
+                if rel_offset == offset and quality == qual:
                     return root, quality
-                else:
-                    break # Skip returning it, let it snap to the nearest diatonic chord below
+                    
+            # 2. Check if it's an allowed beautiful off-chord
+            # User requested: Force diatonic ~97% of the time. Only allow special off-chords ~3% of the time
+            # or when we really need it.
+            allowed_list = ALLOWED_OFF_CHORDS[key_mode]
+            for offset, qual in allowed_list:
+                if rel_offset == offset and quality == qual:
+                    if random.random() > 0.97:
+                        return root, quality
+                    else:
+                        break # Skip returning it, let it snap to the nearest diatonic chord below
 
         # 3. Snap to the nearest diatonic chord based on pitch class overlap
         # Generate pitch classes for predicted chord
@@ -100,8 +101,13 @@ class ProgressionEngine:
         best_diatonic_qual = None
         max_overlap = -1
         
+        diatonic_list = DIATONIC_CHORDS[key_mode]
         for offset, qual in diatonic_list:
             dia_root = (key_idx + offset) % 12
+            dia_root_name = NOTE_NAMES[dia_root]
+            if (dia_root_name, qual) == forbidden_chord:
+                continue
+                
             dia_intervals = CHORD_INTERVALS.get(qual, (0, 4, 7))
             dia_pcs = set((dia_root + i) % 12 for i in dia_intervals)
             
@@ -109,7 +115,7 @@ class ProgressionEngine:
             overlap = len(pred_pcs.intersection(dia_pcs))
             if overlap > max_overlap:
                 max_overlap = overlap
-                best_diatonic_root = NOTE_NAMES[dia_root]
+                best_diatonic_root = dia_root_name
                 best_diatonic_qual = qual
                 
         if best_diatonic_root is not None:

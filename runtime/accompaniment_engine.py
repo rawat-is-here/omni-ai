@@ -35,11 +35,21 @@ class AccompanimentEngine:
         self,
         melody: list[int],
         progression_engine = None,
+        forbidden_chord: tuple[str, str] = None,
+        force_chord: tuple[str, str] = None,
     ) -> dict:
 
-        prediction = self.ai.predict(
-            melody,
-        )
+        if force_chord is not None:
+            root, quality = force_chord
+            prediction = {
+                "root_index": 0, "quality_index": 0, 
+                "root": root, "quality": quality, "chord": root + quality
+            }
+        else:
+            prediction = self.ai.predict(
+                melody,
+                forbidden_chord=forbidden_chord,
+            )
 
         self.last_prediction = prediction
 
@@ -47,8 +57,8 @@ class AccompanimentEngine:
         quality = prediction["quality"]
 
         # Filter the chord through music theory progression constraints
-        if progression_engine is not None:
-            root, quality = progression_engine.filter_chord(root, quality)
+        if progression_engine is not None and force_chord is None:
+            root, quality = progression_engine.filter_chord(root, quality, forbidden_chord=forbidden_chord)
             prediction["root"] = root
             prediction["quality"] = quality
             prediction["chord"] = root + quality
