@@ -69,6 +69,8 @@ class ProgressionEngine:
         key_idx = NOTE_TO_INDEX[key_tonic]
         pred_root_idx = NOTE_TO_INDEX[root]
         
+        import random
+        
         # Calculate pitch offset of the predicted chord relative to the key
         rel_offset = (pred_root_idx - key_idx) % 12
         
@@ -79,10 +81,15 @@ class ProgressionEngine:
                 return root, quality
                 
         # 2. Check if it's an allowed beautiful off-chord
+        # User requested: Force diatonic ~97% of the time. Only allow special off-chords ~3% of the time
+        # or when we really need it.
         allowed_list = ALLOWED_OFF_CHORDS[key_mode]
         for offset, qual in allowed_list:
             if rel_offset == offset and quality == qual:
-                return root, quality
+                if random.random() > 0.97:
+                    return root, quality
+                else:
+                    break # Skip returning it, let it snap to the nearest diatonic chord below
 
         # 3. Snap to the nearest diatonic chord based on pitch class overlap
         # Generate pitch classes for predicted chord
