@@ -37,11 +37,11 @@ import os
 print("Loading datasets...")
 dataset = OmniDataset("models/train.pkl", augment=True)
 
-if os.path.exists("models/bollywood_train.pkl"):
-    print("Loading and merging Bollywood dataset...")
-    with open("models/bollywood_train.pkl", "rb") as f:
-        bollywood_samples = pickle.load(f)
-    dataset.samples.extend(bollywood_samples)
+if os.path.exists("models/indian_pop_train.pkl"):
+    print("Loading and merging Indian Pop dataset...")
+    with open("models/indian_pop_train.pkl", "rb") as f:
+        indian_pop_samples = pickle.load(f)
+    dataset.samples.extend(indian_pop_samples)
 
 print(f"Total training samples: {len(dataset)}")
 

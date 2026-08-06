@@ -27,15 +27,17 @@ class KeyDetector:
         if len(notes) < self.minimum_notes:
             return None
 
-        # Build weighted pitch-class histogram
+        # Build weighted pitch-class histogram with recency decay
         histogram = np.zeros(12, dtype=np.float32)
         total_weight = 0.0
+        decay_factor = 0.9  # Decay weight of older notes by 10% per step
 
-        for note in notes:
+        for i, note in enumerate(reversed(notes)):
             pc = note.midi_note % 12
             duration = max(0.05, note.duration)
             confidence = max(0.0, note.confidence)
-            weight = duration * confidence
+            # Recent notes are exponentially weighted higher
+            weight = duration * confidence * (decay_factor ** i)
             histogram[pc] += weight
             total_weight += weight
 

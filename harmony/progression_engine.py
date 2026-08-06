@@ -35,28 +35,15 @@ DIATONIC_CHORDS = {
     ]
 }
 
-# Beautiful "Off Chords" allowed in Bollywood progressions
+# Beautiful "Off Chords" allowed in Bollywood progressions (Stripped down for simplicity)
 ALLOWED_OFF_CHORDS = {
     "Major": [
-        (4, ""),     # III (E Major secondary dominant, e.g., resolving to vi)
-        (4, "7"),    # III7 (E7)
-        (9, ""),     # VI (A Major, resolving to ii)
-        (9, "7"),    # VI7 (A7)
-        (2, ""),     # II (D Major, resolving to V)
-        (2, "7"),    # II7 (D7)
         (5, "m"),    # iv (F minor borrowed chord, highly emotive!)
         (5, "m7"),   # iv7 (Fm7)
-        (8, ""),     # bVI (Ab Major borrowed)
-        (10, ""),    # bVII (Bb Major borrowed)
-        (3, ""),     # bIII (Eb Major borrowed)
     ],
     "Minor": [
         (7, ""),     # V (E Major dominant resolving to i - harmonic minor)
         (7, "7"),    # V7 (E7 dominant)
-        (5, ""),     # IV (D Major - Dorian major IV chord)
-        (5, "7"),    # IV7 (D7)
-        (2, ""),     # II (B Major)
-        (1, ""),     # bII (Bb Major - Neapolitan chord)
     ]
 }
 

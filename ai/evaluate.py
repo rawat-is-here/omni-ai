@@ -89,6 +89,6 @@ if __name__ == "__main__":
     # Evaluate on the original dataset
     evaluate(dataset_path="models/train.pkl")
     
-    # Evaluate on the Bollywood dataset
-    if os.path.exists("models/bollywood_train.pkl"):
-        evaluate(dataset_path="models/bollywood_train.pkl")
+    # Evaluate on the Indian Pop dataset
+    if os.path.exists("models/indian_pop_train.pkl"):
+        evaluate(dataset_path="models/indian_pop_train.pkl")
