@@ -10,69 +10,76 @@ from __future__ import annotations
 import numpy as np
 
 from core.data_models import KeyEstimate
-from music.music_memory import MusicMemory
 from music.theory import NOTE_NAMES
 
-# Krumhansl-Schmuckler Key Profiles (relative to C)
-MAJOR_PROFILE = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
-MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+# Binary scale templates (1 if note belongs to scale, 0 if not)
+# Major intervals: 0, 2, 4, 5, 7, 9, 11
+BINARY_MAJOR = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1], dtype=np.float32)
+
+# Natural Minor intervals: 0, 2, 3, 5, 7, 8, 10
+BINARY_MINOR = np.array([1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0], dtype=np.float32)
 
 
 class KeyDetector:
     def __init__(self):
-        self.minimum_notes = 4
+        pass
 
-    def detect(self, memory: MusicMemory) -> KeyEstimate | None:
+    def detect(self, memory: 'MusicMemory') -> KeyEstimate | None:
         notes = memory.get_notes()
-        if len(notes) < self.minimum_notes:
+        if len(notes) == 0:
             return None
 
-        # Build weighted pitch-class histogram with recency decay
-        histogram = np.zeros(12, dtype=np.float32)
-        total_weight = 0.0
-        decay_factor = 0.9  # Decay weight of older notes by 10% per step
+        # Accumulate pitch-class durations
+        durations = np.zeros(12, dtype=np.float32)
+        total_duration = 0.0
 
-        for i, note in enumerate(reversed(notes)):
+        for note in notes:
             pc = note.midi_note % 12
-            duration = max(0.05, note.duration)
-            confidence = max(0.0, note.confidence)
-            # Recent notes are exponentially weighted higher
-            weight = duration * confidence * (decay_factor ** i)
-            histogram[pc] += weight
-            total_weight += weight
+            weight = note.duration * note.confidence
+            durations[pc] += weight
+            total_duration += weight
 
-        if total_weight == 0.0:
+        if total_duration == 0.0:
             return None
-
-        # Normalize histogram
-        histogram /= total_weight
 
         best_key = None
         best_mode = None
-        best_r = -2.0  # Pearson correlation range is [-1, 1]
+        best_score = -1.0
+        best_membership = 0.0
 
-        # Check all 12 tonics for Major and Minor
+        # Test all 12 tonics for Major and Minor
         for tonic_idx in range(12):
-            # Shift profiles to tonic_idx
-            shifted_major = np.roll(MAJOR_PROFILE, tonic_idx)
-            shifted_minor = np.roll(MINOR_PROFILE, tonic_idx)
+            shifted_major = np.roll(BINARY_MAJOR, tonic_idx)
+            shifted_minor = np.roll(BINARY_MINOR, tonic_idx)
 
-            # Pearson correlation
-            r_major = np.corrcoef(histogram, shifted_major)[0, 1]
-            r_minor = np.corrcoef(histogram, shifted_minor)[0, 1]
+            # Calculate membership percentage: What % of sung duration is in the scale?
+            in_scale_major = np.sum(durations * shifted_major)
+            in_scale_minor = np.sum(durations * shifted_minor)
+            
+            score_major = in_scale_major / total_duration
+            score_minor = in_scale_minor / total_duration
 
-            if r_major > best_r:
-                best_r = r_major
+            # Tie-breaker: If membership is equal, favor the scale whose tonic (root) was sung more
+            tonic_emphasis = durations[tonic_idx] / total_duration
+            
+            # Weight the membership heavily (99%), and use tonic emphasis (1%) to break ties
+            final_major = (score_major * 0.99) + (tonic_emphasis * 0.01)
+            final_minor = (score_minor * 0.99) + (tonic_emphasis * 0.01)
+
+            if final_major > best_score:
+                best_score = final_major
                 best_key = NOTE_NAMES[tonic_idx]
                 best_mode = "Major"
+                best_membership = score_major
 
-            if r_minor > best_r:
-                best_r = r_minor
+            if final_minor > best_score:
+                best_score = final_minor
                 best_key = NOTE_NAMES[tonic_idx]
                 best_mode = "Minor"
+                best_membership = score_minor
 
-        # Map correlation to 0-1 confidence range
-        confidence = float(max(0.0, min(1.0, (best_r + 1.0) / 2.0)))
+        # The confidence is exactly the pure membership percentage (0.0 to 1.0)
+        confidence = float(max(0.0, min(1.0, best_membership)))
 
         return KeyEstimate(
             tonic=best_key,

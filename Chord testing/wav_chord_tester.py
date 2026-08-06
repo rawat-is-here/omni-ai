@@ -105,12 +105,12 @@ def evaluate_wav(wav_path: str, expected_chords: list[str], key: str = None):
             if not generated_chords or generated_chords[-1] != chord_str:
                 generated_chords.append(chord_str)
                 
+    detected_key = controller.progression_engine.active_key
     controller.clear()
     
     print("\n--- RESULTS ---")
     print(f"Generated Chords: {generated_chords}")
     print(f"Expected Chords:  {expected_chords}")
-    
     # Calculate strict index accuracy
     matches = 0
     min_len = min(len(generated_chords), len(expected_chords))
@@ -126,25 +126,64 @@ def evaluate_wav(wav_path: str, expected_chords: list[str], key: str = None):
     strict_accuracy = (matches / max(len(expected_chords), len(generated_chords))) * 100
     
     # Calculate Longest Common Subsequence (LCS) for musical alignment accuracy
-    # This prevents a 1-chord shift from ruining the entire score.
-    m = len(generated_chords)
-    n = len(expected_chords)
-    L = [[0] * (n + 1) for _ in range(m + 1)]
-    
-    for i in range(m + 1):
-        for j in range(n + 1):
-            if i == 0 or j == 0:
-                L[i][j] = 0
-            elif generated_chords[i-1] == expected_chords[j-1]:
-                L[i][j] = L[i-1][j-1] + 1
-            else:
-                L[i][j] = max(L[i-1][j], L[i][j-1])
-                
-    lcs_len = L[m][n]
-    lcs_accuracy = (lcs_len / max(m, n)) * 100 if max(m, n) > 0 else 0.0
+    def calculate_lcs(seq1, seq2):
+        m, n = len(seq1), len(seq2)
+        L = [[0] * (n + 1) for _ in range(m + 1)]
+        for i in range(m + 1):
+            for j in range(n + 1):
+                if i == 0 or j == 0:
+                    L[i][j] = 0
+                elif seq1[i-1] == seq2[j-1]:
+                    L[i][j] = L[i-1][j-1] + 1
+                else:
+                    L[i][j] = max(L[i-1][j], L[i][j-1])
+        return L[m][n]
+
+    lcs_len = calculate_lcs(generated_chords, expected_chords)
+    lcs_accuracy = (lcs_len / max(len(generated_chords), len(expected_chords))) * 100 if max(len(generated_chords), len(expected_chords)) > 0 else 0.0
     
     print(f"Strict Index-by-Index Accuracy: {strict_accuracy:.2f}% (Fails on small timing offsets)")
-    print(f"Musical Alignment (LCS) Accuracy: {lcs_accuracy:.2f}% (Tracks structural correctness)")
+    print(f"Musical Alignment (LCS) Accuracy: {lcs_accuracy:.2f}%")
+
+    # Transposition-invariant evaluation (if they sang in a different key)
+    if expected_chords and detected_key is not None and detected_key.tonic is not None:
+        from music.theory import NOTE_TO_INDEX, NOTE_NAMES
+        
+        # Deduce the expected key from the first chord of expected_chords (e.g. Dm -> D Minor, G -> G Major)
+        first_chord = expected_chords[0]
+        if len(first_chord) > 1 and first_chord[1] in ['#', 'b']:
+            expected_tonic = first_chord[:2]
+            qual = first_chord[2:]
+        else:
+            expected_tonic = first_chord[0]
+            qual = first_chord[1:]
+            
+        expected_mode = "Minor" if qual.startswith('m') and not qual.startswith('major') else "Major"
+        detected_tonic = detected_key.tonic
+        
+        # Handle index shift calculation
+        if expected_tonic in NOTE_TO_INDEX and detected_tonic in NOTE_TO_INDEX:
+            shift = (NOTE_TO_INDEX[detected_tonic] - NOTE_TO_INDEX[expected_tonic]) % 12
+            
+            if shift != 0:
+                print(f"\n[Transposition Detected] You sang in {detected_tonic} {detected_key.mode} but sheet is in {expected_tonic} {expected_mode} (Shift: +{shift} semitones)")
+                
+                # Helper to transpose a chord string
+                def transpose_chord_str(c_str, semitones):
+                    if len(c_str) > 1 and c_str[1] in ['#', 'b']:
+                        root, qual = c_str[:2], c_str[2:]
+                    else:
+                        root, qual = c_str[0], c_str[1:]
+                    
+                    new_idx = (NOTE_TO_INDEX[root] + semitones) % 12
+                    return f"{NOTE_NAMES[new_idx]}{qual}"
+                
+                transposed_expected = [transpose_chord_str(c, shift) for c in expected_chords]
+                print(f"Transposed Expected Chords: {transposed_expected}")
+                
+                transposed_lcs = calculate_lcs(generated_chords, transposed_expected)
+                transposed_accuracy = (transposed_lcs / max(len(generated_chords), len(transposed_expected))) * 100
+                print(f"Transposed Alignment (LCS) Accuracy: {transposed_accuracy:.2f}% (Takes your actual key into account!)")
 
 
 if __name__ == "__main__":
