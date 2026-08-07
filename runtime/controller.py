@@ -130,58 +130,33 @@ class RuntimeController:
 
             return
 
-        # Real-time Key/Scale detection (8-second buffer with Majority Voting)
+        # Real-time Key/Scale detection (8-second buffer)
         if not self.key_locked and not self.memory.is_empty():
             current_time = timestamp if timestamp is not None else time.perf_counter()
             if self.first_note_time is None:
                 self.first_note_time = current_time
-                print("Singing detected! Starting 8-second scale analysis...")
+                print("Singing detected! Recording notes for 8 seconds to determine the best scale...")
+                if self.on_key_locked:
+                    self.on_key_locked("Detecting Scale... (Sing for 8s)")
                 
             elapsed = current_time - self.first_note_time
             if elapsed >= 8.0:
-                # Run the final vote count!
-                if self.key_votes:
-                    from collections import Counter
-                    winner_key_str, count = Counter(self.key_votes).most_common(1)[0]
-                    parts = winner_key_str.split()
-                    tonic, mode = parts[0], parts[1]
-                    
-                    from core.data_models import KeyEstimate
-                    winner_key = KeyEstimate(tonic=tonic, mode=mode, confidence=1.0)
-                    
+                # 8 Seconds have passed! We now have a full buffer of all the combined notes.
+                # Run the detector ONCE on the complete 8-second melody.
+                key_estimate = self.key_detector.detect(self.memory)
+                if key_estimate is not None:
                     self.key_locked = True
-                    self.progression_engine.update_key(winner_key)
+                    self.progression_engine.update_key(key_estimate)
                     if self.on_key_locked:
-                        self.on_key_locked(f"{tonic} {mode}")
+                        self.on_key_locked(f"{key_estimate.tonic} {key_estimate.mode}")
                     print(
-                        f"\n[Scale Locked] Key locked to -> {tonic} {mode} "
-                        f"(Won majority: {count}/{len(self.key_votes)} votes over 8s buffer)"
+                        f"\n[Scale Locked] Key locked to -> {key_estimate.tonic} {key_estimate.mode} "
+                        f"(conf: {key_estimate.confidence:.2f} based on full 8-second buffer)"
                     )
-                else:
-                    # Fallback if no votes were cast (e.g. fast processing)
-                    key_estimate = self.key_detector.detect(self.memory)
-                    if key_estimate is not None:
-                        self.key_locked = True
-                        self.progression_engine.update_key(key_estimate)
-                        if self.on_key_locked:
-                            self.on_key_locked(f"{key_estimate.tonic} {key_estimate.mode}")
-                        print(
-                            f"\n[Scale Locked] Key locked to -> {key_estimate.tonic} {key_estimate.mode} "
-                            f"(conf: {key_estimate.confidence:.2f} based on fallback detect)"
-                        )
             else:
-                # Cast a vote once every second of singing
-                vote_tick = int(elapsed)
-                if not hasattr(self, '_last_vote_tick') or vote_tick > self._last_vote_tick:
-                    self._last_vote_tick = vote_tick
-                    key_estimate = self.key_detector.detect(self.memory)
-                    if key_estimate is not None:
-                        self.key_votes.append(f"{key_estimate.tonic} {key_estimate.mode}")
-                
                 # Limit printing to once per second
                 if not hasattr(self, '_last_progress_print') or current_time - self._last_progress_print >= 1.0:
-                    current_guess = self.key_votes[-1] if self.key_votes else "Unknown"
-                    print(f"Analyzing scale... ({8.0 - elapsed:.1f}s remaining, current guess: {current_guess})")
+                    print(f"Recording notes... ({8.0 - elapsed:.1f}s remaining)")
                     self._last_progress_print = current_time
 
         # Remain silent during the initial 8-second analysis window

@@ -49,58 +49,87 @@ class KeyDetector:
         histogram = durations / total_duration
         hist_std = np.std(histogram)
 
-        best_key = None
-        best_mode = None
-        best_score = -1.0
-        best_membership = 0.0
+        # Extract temporal anchors
+        first_note_pc = notes[0].midi_note % 12
+        last_note_pc = notes[-1].midi_note % 12
 
-        # Test all 12 tonics for Major and Minor
+        # =================================================================
+        # PASS 1: Calculate Pure Diatonic Membership for all 24 scales
+        # =================================================================
+        candidates = []
+        max_membership = -1.0
+
         for tonic_idx in range(12):
             shifted_major = np.roll(BINARY_MAJOR, tonic_idx)
             shifted_minor = np.roll(BINARY_MINOR, tonic_idx)
 
-            # Calculate membership percentage: What % of sung duration is in the scale?
             in_scale_major = np.sum(durations * shifted_major)
             in_scale_minor = np.sum(durations * shifted_minor)
             
             score_major = in_scale_major / total_duration
             score_minor = in_scale_minor / total_duration
 
-            # Tie-breaker: Use K-S empirical dataset to distinguish relative major/minor
-            ks_shifted_major = np.roll(KS_MAJOR_PROFILE, tonic_idx)
-            ks_shifted_minor = np.roll(KS_MINOR_PROFILE, tonic_idx)
+            candidates.append({"tonic_idx": tonic_idx, "mode": "Major", "membership": score_major})
+            candidates.append({"tonic_idx": tonic_idx, "mode": "Minor", "membership": score_minor})
+
+            max_membership = max(max_membership, score_major, score_minor)
+
+        # Filter down to only those scales that tied for the top membership score
+        # Using a tiny epsilon for float comparison safety
+        epsilon = 1e-5
+        top_candidates = [c for c in candidates if c["membership"] >= max_membership - epsilon]
+
+        # =================================================================
+        # PASS 2: The Differentiator Function
+        # =================================================================
+        best_candidate = None
+        best_diff_score = -float('inf')
+
+        for c in top_candidates:
+            tonic_idx = c["tonic_idx"]
+            mode = c["mode"]
             
-            if hist_std > 0:
-                corr_major = (np.corrcoef(histogram, ks_shifted_major)[0, 1] + 1) / 2
-                corr_minor = (np.corrcoef(histogram, ks_shifted_minor)[0, 1] + 1) / 2
-                # Handle possible NaN if variance is extremely low despite std > 0 check
-                if np.isnan(corr_major): corr_major = 0.0
-                if np.isnan(corr_minor): corr_minor = 0.0
+            # 1. K-S Statistical Profile Correlation
+            if mode == "Major":
+                ks_profile = np.roll(KS_MAJOR_PROFILE, tonic_idx)
             else:
-                corr_major = 0.0
-                corr_minor = 0.0
+                ks_profile = np.roll(KS_MINOR_PROFILE, tonic_idx)
+                
+            if hist_std > 0:
+                corr = (np.corrcoef(histogram, ks_profile)[0, 1] + 1) / 2
+                if np.isnan(corr): corr = 0.0
+            else:
+                corr = 0.0
+                
+            # 2. Temporal Anchor Heuristics
+            # Vocalists naturally anchor the beginning and end of phrases on the Tonic or Dominant.
+            anchor_bonus = 0.0
+            dominant_idx = (tonic_idx + 7) % 12
             
-            # Weight the membership heavily (99%), and use K-S statistical dataset (1%) to break ties
-            final_major = (score_major * 0.99) + (corr_major * 0.01)
-            final_minor = (score_minor * 0.99) + (corr_minor * 0.01)
+            # First note anchor
+            if first_note_pc == tonic_idx:
+                anchor_bonus += 0.05
+            elif first_note_pc == dominant_idx:
+                anchor_bonus += 0.02
+                
+            # Last note resolution anchor
+            if last_note_pc == tonic_idx:
+                anchor_bonus += 0.03
+            elif last_note_pc == dominant_idx:
+                anchor_bonus += 0.01
 
-            if final_major > best_score:
-                best_score = final_major
-                best_key = NOTE_NAMES[tonic_idx]
-                best_mode = "Major"
-                best_membership = score_major
-
-            if final_minor > best_score:
-                best_score = final_minor
-                best_key = NOTE_NAMES[tonic_idx]
-                best_mode = "Minor"
-                best_membership = score_minor
+            # The differentiator score is the combination of statistics + temporal anchors
+            diff_score = corr + anchor_bonus
+            
+            if diff_score > best_diff_score:
+                best_diff_score = diff_score
+                best_candidate = c
 
         # The confidence is exactly the pure membership percentage (0.0 to 1.0)
-        confidence = float(max(0.0, min(1.0, best_membership)))
+        confidence = float(max(0.0, min(1.0, max_membership)))
 
         return KeyEstimate(
-            tonic=best_key,
-            mode=best_mode,
+            tonic=NOTE_NAMES[best_candidate["tonic_idx"]],
+            mode=best_candidate["mode"],
             confidence=confidence
         )
