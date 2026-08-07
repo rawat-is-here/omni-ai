@@ -48,6 +48,9 @@ class RealtimeSynth:
 
         self.lock = threading.Lock()
 
+        self.recording = False
+        self.recorded_samples = []
+
         # Stateful Real-time Effects
         self.lowpass = RTLowpassFilter(cutoff_hz=1000.0, sample_rate=sample_rate)
         self.chorus = RTChorus(sample_rate=sample_rate, rate_hz=1.0, depth_ms=2.0, delay_ms=15.0, mix=0.35)
@@ -110,6 +113,9 @@ class RealtimeSynth:
 
         audio *= self.master_gain
 
+        if self.recording:
+            self.recorded_samples.append(np.copy(audio))
+
         outdata[:, 0] = audio.astype(np.float32)
 
     # ---------------------------------------------------------
@@ -151,6 +157,41 @@ class RealtimeSynth:
         self.stream.stop()
 
         self.stream.close()
+
+    # ---------------------------------------------------------
+
+    def start_recording(self):
+        with self.lock:
+            self.recorded_samples = []
+            self.recording = True
+        print("\n[Recording Session Started]\n")
+
+    # ---------------------------------------------------------
+
+    def stop_recording(self, filepath):
+        with self.lock:
+            self.recording = False
+            samples = self.recorded_samples
+            self.recorded_samples = []
+
+        if not samples:
+            print("\n[Recording Session] No samples recorded.\n")
+            return
+
+        import wave
+        # Concatenate all audio buffers
+        full_audio = np.concatenate(samples)
+
+        # Convert to 16-bit PCM
+        pcm_data = (full_audio * 32767).astype(np.int16)
+
+        with wave.open(filepath, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(self.sample_rate)
+            wav_file.writeframes(pcm_data.tobytes())
+
+        print(f"\n[Saved Session Recording] Saved to: {filepath}\n")
 
 
 # ------------------------------------------------------------

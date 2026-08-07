@@ -44,6 +44,7 @@ class RuntimeController:
         self.key_locked = False
         self.first_note_time = None
         self.key_votes = []  # List to store key guesses for majority voting
+        self.recording_started = False
         
         if fixed_key_str:
             parts = fixed_key_str.split()
@@ -61,6 +62,10 @@ class RuntimeController:
     # ---------------------------------------------------------
 
     def add_note(self, note):
+
+        if not self.recording_started:
+            self.recording_started = True
+            self.engine.synth.start_recording()
 
         self.memory.add(note)
 
@@ -87,6 +92,14 @@ class RuntimeController:
             delattr(self, '_last_vote_tick')
 
         self.scheduler.reset()
+
+        if self.recording_started:
+            import os
+            from datetime import datetime
+            os.makedirs("recordings", exist_ok=True)
+            filename = f"recordings/chord_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+            self.engine.synth.stop_recording(filename)
+            self.recording_started = False
 
         self.engine.stop()
 
