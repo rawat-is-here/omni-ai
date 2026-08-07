@@ -18,11 +18,14 @@ from runtime.accompaniment_engine import AccompanimentEngine
 
 class RuntimeController:
 
-    def __init__(self, fixed_key_str: str | None = None):
+    def __init__(self, fixed_key_str: str | None = None, on_chord_change=None, on_key_locked=None):
 
         self.memory = MusicMemory()
 
         self.scheduler = Scheduler()
+        
+        self.on_chord_change = on_chord_change
+        self.on_key_locked = on_key_locked
 
         self.engine = AccompanimentEngine()
 
@@ -148,6 +151,8 @@ class RuntimeController:
                     
                     self.key_locked = True
                     self.progression_engine.update_key(winner_key)
+                    if self.on_key_locked:
+                        self.on_key_locked(f"{tonic} {mode}")
                     print(
                         f"\n[Scale Locked] Key locked to -> {tonic} {mode} "
                         f"(Won majority: {count}/{len(self.key_votes)} votes over 8s buffer)"
@@ -158,6 +163,8 @@ class RuntimeController:
                     if key_estimate is not None:
                         self.key_locked = True
                         self.progression_engine.update_key(key_estimate)
+                        if self.on_key_locked:
+                            self.on_key_locked(f"{key_estimate.tonic} {key_estimate.mode}")
                         print(
                             f"\n[Scale Locked] Key locked to -> {key_estimate.tonic} {key_estimate.mode} "
                             f"(conf: {key_estimate.confidence:.2f} based on fallback detect)"
@@ -234,3 +241,6 @@ class RuntimeController:
 
             self.current_chord = chord
             self.chord_beat_count = 1
+            
+            if self.on_chord_change:
+                self.on_chord_change(prediction)

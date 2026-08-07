@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniAI - Live Accompanist</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+    </div>
+
+    <div class="container glass-panel">
+        <header>
+            <h1 class="gradient-text">OmniAI</h1>
+            <p class="subtitle">Live AI Accompanist</p>
+        </header>
+
+        <main>
+            <div id="status-display" class="status-box">
+                <p id="status-text">Ready to listen.</p>
+                <div class="visualizer-bars">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+            </div>
+
+            <div class="chord-display-container">
+                <div class="scale-badge" id="scale-badge">Detecting Scale...</div>
+                <h2 id="current-chord" class="chord-name">--</h2>
+            </div>
+
+            <button id="start-btn" class="primary-btn pulse">Start Singing</button>
+        </main>
+        
+        <footer>
+            <p>Sing clearly for 8 seconds to lock the scale.</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
